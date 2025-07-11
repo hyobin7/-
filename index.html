@@ -1,5 +1,4 @@
 
-<!-- 최종 실시간 동기화 및 모바일 드래그 대응 포함 HTML -->
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -7,32 +6,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>배드민턴 코트 배정</title>
   <style>
-    body { font-family: sans-serif; margin: 0; background: #eef6fd; }
-    h2 { text-align: center; }
-    textarea { width: 100%; height: 80px; }
-    button { margin: 4px; padding: 5px 10px; font-size: 14px; }
-    .section { display: flex; flex-wrap: wrap; justify-content: center; margin: 10px; }
-    .zone { border: 1px solid #ccc; padding: 10px; margin: 10px; min-width: 200px; min-height: 100px; background: white; border-radius: 8px; position: relative; }
-    .zone h3 { margin-top: 0; }
-    .name-tag { border: 1px solid #007bff; background: #cce5ff; padding: 5px 10px; border-radius: 6px; display: inline-block; margin: 5px; cursor: grab; }
-    .badge { background: crimson; color: white; border-radius: 10px; font-size: 12px; padding: 2px 6px; margin-left: 4px; }
+    body { font-family: sans-serif; padding: 20px; }
+    .container { border: 1px solid #ccc; padding: 10px; }
   </style>
 </head>
 <body>
-  <h2>배드민턴 코트 배정</h2>
-  <textarea id="inputText" placeholder="이름 급수 성별 입력"></textarea>
-  <button onclick="createNameTags()">이름표 만들기</button>
-  <div class="section" id="zones">
-    <div class="zone" id="waiting"><h3>대기</h3></div>
-    <div class="zone" id="court1"><h3>1코트</h3></div>
-    <div class="zone" id="court2"><h3>2코트</h3></div>
-    <div class="zone" id="court3"><h3>3코트</h3></div>
-    <div class="zone" id="court4"><h3>4코트</h3></div>
+  <h2>배드민턴 코트 배정 (Firebase 연동)</h2>
+  <div class="container">
+    <input id="playerInput" placeholder="이름 급수 성별 입력" />
+    <button onclick="addPlayer()">이름표 만들기</button>
+    <ul id="namePool"></ul>
   </div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-    import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-database.js";
+    import { getDatabase, ref, push, onValue } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyBQnSbBwJR-IS1aOuNrJz4qopK3RSiZbGY",
@@ -41,85 +29,36 @@
       projectId: "cock-5c32d",
       storageBucket: "cock-5c32d.appspot.com",
       messagingSenderId: "639370966543",
-      appId: "1:639370966543:web:84bdc6f474a7ba8cbc557a",
-      measurementId: "G-FLZSZVBPHC"
+      appId: "1:639370966543:web:84bdc6f474a7ba8cbc557a"
     };
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
+    const namePoolRef = ref(db, "namePool");
 
-    const zones = ['waiting', 'court1', 'court2', 'court3', 'court4'];
-
-    function syncToFirebase() {
-      const data = {};
-      zones.forEach(zone => {
-        const tags = [...document.getElementById(zone).querySelectorAll('.name-tag')].map(tag => tag.textContent);
-        data[zone] = tags;
-      });
-      set(ref(db, 'layout'), data);
-    }
-
-    function listenFromFirebase() {
-      onValue(ref(db, 'layout'), snapshot => {
-        const data = snapshot.val();
-        if (data) {
-          zones.forEach(zone => {
-            const container = document.getElementById(zone);
-            container.innerHTML = `<h3>${container.querySelector('h3').textContent}</h3>`;
-            data[zone].forEach(name => {
-              const tag = createTag(name);
-              container.appendChild(tag);
-            });
-          });
-        }
-      });
-    }
-
-    function createTag(text) {
-      const span = document.createElement('span');
-      span.className = 'name-tag';
-      span.draggable = true;
-      span.textContent = text;
-      span.addEventListener('dragstart', e => {
-        e.dataTransfer.setData('text/plain', text);
-        e.dataTransfer.effectAllowed = 'move';
-        span.classList.add('dragging');
-      });
-      span.addEventListener('dragend', () => {
-        span.classList.remove('dragging');
-        syncToFirebase();
-      });
-      return span;
-    }
-
-    zones.forEach(zone => {
-      const elem = document.getElementById(zone);
-      elem.addEventListener('dragover', e => {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
-      });
-      elem.addEventListener('drop', e => {
-        e.preventDefault();
-        const name = e.dataTransfer.getData('text/plain');
-        const tag = createTag(name);
-        elem.appendChild(tag);
-        syncToFirebase();
-      });
+    // 실시간 감지
+    onValue(namePoolRef, (snapshot) => {
+      const data = snapshot.val();
+      const list = document.getElementById("namePool");
+      list.innerHTML = "";
+      if (data) {
+        Object.values(data).forEach(item => {
+          const li = document.createElement("li");
+          li.textContent = item;
+          list.appendChild(li);
+        });
+      }
     });
 
-    window.createNameTags = () => {
-      const input = document.getElementById("inputText").value.trim();
-      const names = input.split("
-").map(line => line.trim()).filter(Boolean);
-      const container = document.getElementById("waiting");
-      names.forEach(name => {
-        const tag = createTag(name);
-        container.appendChild(tag);
-      });
-      syncToFirebase();
+    // 이름표 추가
+    window.addPlayer = () => {
+      const input = document.getElementById("playerInput");
+      const value = input.value.trim();
+      if (value) {
+        push(namePoolRef, value);
+        input.value = "";
+      }
     };
-
-    listenFromFirebase();
   </script>
 </body>
 </html>
