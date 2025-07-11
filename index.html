@@ -442,74 +442,59 @@ function resetAll() {
   window.addEventListener("load", applyBodyZoomAndFit);
 </script>
 
-<!-- Firebase App (the core Firebase SDK) is always required and must be listed first -->
-<script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-database.js"></script>
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
 
 <script>
   const firebaseConfig = {
-    apiKey: "AIzaSyBQnSbBwJR-IS1aOuNrJz4qopK3RSiZbGY",
-    authDomain: "cock-5c32d.firebaseapp.com",
-    databaseURL: "https://cock-5c32d-default-rtdb.firebaseio.com",
-    projectId: "cock-5c32d",
-    storageBucket: "cock-5c32d.appspot.com",
-    messagingSenderId: "639370966543",
-    appId: "1:639370966543:web:84bdc6f474a7ba8cbc557a",
-    measurementId: "G-FLZSZVBPHC"
+    apiKey: "AIzaSyC0caXzAibBt9caNKOnEwEzq3kEtKgABdw",
+    authDomain: "cock-9ca00.firebaseapp.com",
+    projectId: "cock-9ca00",
+    storageBucket: "cock-9ca00.firebasestorage.app",
+    messagingSenderId: "1097422224517",
+    appId: "1:1097422224517:web:e103a3b4d57896fd627dec",
+    measurementId: "G-T5RMLR8QK5",
+    databaseURL: "https://cock-9ca00-default-rtdb.firebaseio.com"
   };
 
-  const app = firebase.initializeApp(firebaseConfig);
-  const database = firebase.database();
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
 
-  function syncAllTags() {
-    const allContainers = ["wait1", "wait2", "court1", "court2", "court3", "court4", "namePool"];
+  function syncToFirebase() {
+    const all = ["wait1", "wait2", "court1", "court2", "court3", "court4", "namePool"];
     const data = {};
-    allContainers.forEach(id => {
-      const container = document.getElementById(id);
-      const tags = Array.from(container.querySelectorAll('.name-tag')).map(tag => {
-        return {
-          key: tag.dataset.key,
-          name: tag.textContent.split(" ")[0],
-          level: tag.textContent.split(" ")[1],
-          gender: tag.classList.contains("male") ? "남" : "여",
-          badge: tag.querySelector(".badge")?.textContent || "0"
-        };
-      });
-      data[id] = tags;
+    all.forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      data[id] = Array.from(el.children).map(child => ({
+        html: child.outerHTML
+      }));
     });
-    database.ref("court_allocation").set(data);
+    db.ref("courtLayout").set(data);
   }
 
-  function loadAllTags() {
-    database.ref("court_allocation").on("value", snapshot => {
-      if (!snapshot.exists()) return;
-      const data = snapshot.val();
-      const allContainers = ["wait1", "wait2", "court1", "court2", "court3", "court4", "namePool"];
-      allContainers.forEach(id => {
+  function loadFromFirebase() {
+    db.ref("courtLayout").on("value", snapshot => {
+      const val = snapshot.val();
+      if (!val) return;
+      Object.keys(val).forEach(id => {
         const container = document.getElementById(id);
+        if (!container) return;
         container.innerHTML = "";
-        if (data[id]) {
-          data[id].forEach(d => {
-            const tag = document.createElement("div");
-            tag.className = "name-tag";
-            tag.dataset.key = d.key;
-            tag.textContent = d.name + " " + d.level;
-            tag.classList.add(d.gender === "남" ? "male" : "female");
-
-            const badge = document.createElement("div");
-            badge.className = "badge";
-            badge.textContent = d.badge;
-            tag.appendChild(badge);
-            container.appendChild(tag);
-          });
-        }
+        val[id].forEach(item => {
+          const temp = document.createElement("div");
+          temp.innerHTML = item.html;
+          const node = temp.firstChild;
+          container.appendChild(node);
+        });
       });
     });
   }
 
-  window.addEventListener("load", () => {
-    loadAllTags();
-    setInterval(syncAllTags, 2000); // 2초 간격으로 전체 동기화
+  window.addEventListener("DOMContentLoaded", () => {
+    loadFromFirebase();
+    setInterval(syncToFirebase, 2000);
   });
 </script>
 
